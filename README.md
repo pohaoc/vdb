@@ -1,6 +1,6 @@
 # vdb — a tiling visual debugger for system performance
 
-vdb is a terminal-based tool built on bonsai_term designed to visualize live telemetry and export data for plotting. It features a customizable, tiled workspace where users can create panes driven by custom plugins, allowing them to visually debug performance and resource footprints. Optionally, the data can be recorded and exported for quick plotting.
+vdb is a terminal-based tool built on [bonsai_term](https://github.com/janestreet/bonsai_term) designed to visualize live telemetry and export data for plotting. It features a customizable, tiled workspace where users can create panes driven by custom plugins, allowing them to visually debug performance and resource footprints. Optionally, the data can be recorded and exported for quick plotting.
 
 ## Download
 ```
