@@ -1,0 +1,7 @@
+(vendored_dirs vendor)
+
+; `dune build --profile static` produces a fully statically linked binary
+; (no libc dependency); the default and release profiles link libc dynamically.
+(env
+ (static
+  (link_flags (-ccopt -static))))

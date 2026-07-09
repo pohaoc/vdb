@@ -1,0 +1,6 @@
+(library
+ (name bonsai_term_chart)
+ (libraries bonsai_term bonsai_term_components.border_box
+   bonsai_term_components.catppuccin bonsai_term_components.typography core)
+ (preprocess
+  (pps ppx_jane bonsai.ppx_bonsai)))

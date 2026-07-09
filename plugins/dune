@@ -1,0 +1,6 @@
+(library
+ (name vdb_plugins)
+ (libraries async bonsai bonsai_term bonsai_term_chart
+   bonsai_term_components.catppuccin core vdb)
+ (preprocess
+  (pps ppx_jane bonsai.ppx_bonsai)))
