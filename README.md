@@ -13,9 +13,9 @@ sudo curl -LsSf https://raw.githubusercontent.com/pohaoc/vdb/main/bin/vdb -o /us
 Requires [OxCaml](https://oxcaml.org/)
 
 ```sh
+eval $(opam env --switch=5.2.0+ox)
 opam install bonsai_term
 opam install bonsai_term_components
-eval $(opam env --switch=5.2.0+ox)
 dune build
 dune exec ./bin/main.exe
 ```
