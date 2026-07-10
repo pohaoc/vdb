@@ -12,6 +12,13 @@ dist:
 
 clean:
 	dune clean
-	rm -f bin/vdb
+	rm -f bin/vdb bench/straggler
 
-.PHONY: default dist clean
+# Synthetic fork-join workload with a designated straggler, for exercising the
+# sched pane (see the header of bench/straggler.c).
+bench: bench/straggler
+
+bench/straggler: bench/straggler.c
+	gcc -O2 -Wall -Wextra -pthread -o $@ $<
+
+.PHONY: default dist clean bench

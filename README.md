@@ -43,7 +43,11 @@ make dist   # → bin/vdb
 | mouse click | focus the clicked pane |
 
 ## Plugins
-The default ships with cgroup monitoring for now, will be adding gpu profiling next.
+The default ships with:
+
+- **cgroup-memory** — `memory.current` from a cgroup (v2).
+- **sched** — a per-thread scheduling timeline for one process: data come from `/proc/<pid>/task/<tid>/schedstat` deltas, `make bench` to test this with a synthetic fork-join workload with straggler.
+- **gpu profiling** - TODO
 
 
 ## Credits

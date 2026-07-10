@@ -31,11 +31,16 @@ end
 
 module Record_source = struct
   type t =
-    { x_axis : string
-    ; y_axis : string
-    ; latest : (float * float) option
+    { columns : string list
+    ; rows : string list list
     }
   [@@deriving sexp_of, equal]
+
+  let cell value =
+    if Float.is_integer value && Float.(abs value < 1e15)
+    then sprintf "%.0f" value
+    else Float.to_string value
+  ;;
 end
 
 module Output = struct

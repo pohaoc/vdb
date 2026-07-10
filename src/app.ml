@@ -57,10 +57,9 @@ module Action = struct
     | Record_start of
         { pane : Pane_tree.Id.t
         ; plugin_name : string
-        ; x_axis : string
-        ; y_axis : string
+        ; columns : string list
         }
-    | Record_append of float * float
+    | Record_append of string list list
     | Record_stop
     | Prompt_input of char
     | Prompt_backspace
@@ -213,24 +212,24 @@ let apply_action ~registry ctx (model : Model.t) (action : Action.t) =
                 ~data:(Map.set settings_for_pane ~key:spec.key ~data:next)
           })
      | _ -> model)
-  | Record_start { pane; plugin_name; x_axis; y_axis } ->
+  | Record_start { pane; plugin_name; columns } ->
     (match model.recorder with
      | Idle ->
        { model with
-         recorder = Recording { pane; plugin_name; x_axis; y_axis; points = [] }
+         recorder = Recording { pane; plugin_name; columns; rows = [] }
        ; notice = None
        }
      | Recording _ | Prompting _ -> model)
-  | Record_append (x, y) ->
+  | Record_append batch ->
     (match model.recorder with
-     | Recording r -> { model with recorder = Recording { r with points = (x, y) :: r.points } }
+     | Recording r ->
+       (* [batch] is oldest-first within itself; the buffer is newest-first. *)
+       { model with recorder = Recording { r with rows = List.rev batch @ r.rows } }
      | Idle | Prompting _ -> model)
   | Record_stop ->
     (match model.recorder with
-     | Recording { pane = _; plugin_name; x_axis; y_axis; points } ->
-       { model with
-         recorder = Prompting { plugin_name; x_axis; y_axis; points; filename = "" }
-       }
+     | Recording { pane = _; plugin_name; columns; rows } ->
+       { model with recorder = Prompting { plugin_name; columns; rows; filename = "" } }
      | Idle | Prompting _ -> model)
   | Prompt_input c ->
     (match model.recorder with
@@ -248,15 +247,10 @@ let apply_action ~registry ctx (model : Model.t) (action : Action.t) =
      | Idle | Recording _ -> model)
   | Prompt_save ->
     (match model.recorder with
-     | Prompting { plugin_name; x_axis; y_axis; points; filename } ->
+     | Prompting { plugin_name; columns; rows; filename } ->
        let save_and_report =
          let%bind.Effect result =
-           Recorder.save
-             ~input:filename
-             ~plugin_name
-             ~x_axis
-             ~y_axis
-             ~points:(List.rev points)
+           Recorder.save ~input:filename ~plugin_name ~columns ~rows:(List.rev rows)
          in
          Bonsai.Apply_action_context.inject ctx (Action.Save_result result)
        in
@@ -457,10 +451,10 @@ let status_bar ~model ~dimensions =
   in
   let keys =
     match model.Model.recorder with
-    | Prompting { filename; points; _ } ->
+    | Prompting { filename; rows; _ } ->
       sprintf
-        "save %d points to: %s▏  (empty = ./vdb-<plugin>-<time>.csv · Enter save · Esc discard)"
-        (List.length points)
+        "save %d rows to: %s▏  (empty = ./vdb-<plugin>-<time>.csv · Enter save · Esc discard)"
+        (List.length rows)
         filename
     | Idle | Recording _ ->
       if model.Model.options_open
@@ -471,10 +465,10 @@ let status_bar ~model ~dimensions =
   in
   let recording_segment =
     match model.Model.recorder with
-    | Recording { points; plugin_name; pane; _ } ->
+    | Recording { rows; plugin_name; pane; _ } ->
       [ View.text
           ~attrs:[ Attr.bold; Attr.fg (color Red); Attr.bg (color Surface0) ]
-          (sprintf " ● REC %d " (List.length points))
+          (sprintf " ● REC %d " (List.length rows))
       ; View.text
           ~attrs:[ Attr.fg (color Peach); Attr.bg (color Surface0) ]
           (sprintf "🔒[%s] %s " (Pane_tree.Id.to_string pane) plugin_name)
@@ -540,19 +534,19 @@ let component ~registry ?initial ~exit ~dimensions (local_ graph) =
     match model.Model.recorder with
     | Recording { pane; _ } ->
       (match Map.find panes pane with
-       | Some (_view, _handler, Some (source : Plugin.Record_source.t)) -> source.latest
-       | _ -> None)
-    | Idle | Prompting _ -> None
+       | Some (_view, _handler, Some (source : Plugin.Record_source.t)) -> source.rows
+       | _ -> [])
+    | Idle | Prompting _ -> []
   in
   let () =
     Bonsai.Edge.on_change
-      ~equal:[%equal: (float * float) option]
+      ~equal:[%equal: string list list]
       recorded_latest
       ~callback:
         (let%arr inject in
          function
-         | Some (x, y) -> inject (Action.Record_append (x, y))
-         | None -> Effect.Ignore)
+         | [] -> Effect.Ignore
+         | rows -> inject (Action.Record_append rows))
       graph
   in
   let overlay = options_overlay ~registry ~model ~regions in
@@ -598,11 +592,7 @@ let component ~registry ?initial ~exit ~dimensions (local_ graph) =
            ->
            inject
              (Action.Record_start
-                { pane = id
-                ; plugin_name = name
-                ; x_axis = source.x_axis
-                ; y_axis = source.y_axis
-                })
+                { pane = id; plugin_name = name; columns = source.columns })
          | _ -> Effect.Ignore)
     in
     fun (event : Event.t) ->

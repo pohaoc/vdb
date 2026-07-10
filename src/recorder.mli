@@ -2,9 +2,9 @@ open! Core
 open Bonsai_term
 
 (** Recording datapoints from a pane to a CSV file. The app owns the state: [r] starts
-    recording the focused pane's {!Plugin.Record_source}, every change of the source's
-    latest datapoint is appended to a buffer (unbounded — independent of the plugin's
-    display window), and Escape stops and prompts for a save location. *)
+    recording the focused pane's {!Plugin.Record_source}, that source's rows are appended
+    to a buffer every time they change (unbounded — independent of the plugin's display
+    window), and Escape stops and prompts for a save location. *)
 
 module State : sig
   type t =
@@ -12,22 +12,21 @@ module State : sig
     | Recording of
         { pane : Pane_tree.Id.t
         ; plugin_name : string
-        ; x_axis : string
-        ; y_axis : string
-        ; points : (float * float) list (** Newest first. *)
+        ; columns : string list (** CSV header, fixed when recording starts. *)
+        ; rows : string list list (** Newest first. *)
         }
     | Prompting of
         { plugin_name : string
-        ; x_axis : string
-        ; y_axis : string
-        ; points : (float * float) list (** Newest first. *)
+        ; columns : string list
+        ; rows : string list list (** Newest first. *)
         ; filename : string (** What the user has typed so far. *)
         }
   [@@deriving sexp_of, equal]
 end
 
-(** Writes the CSV (header row [x_axis,y_axis], then one row per point) and returns the
-    path written, or an error message.
+(** Writes the CSV (header row [columns], then one row per element of [rows]) and
+    returns the path written, or an error message. Cells are quoted only when they
+    contain a comma, quote, or newline.
 
     [input] is the user-typed location, interpreted relative to the process's working
     directory: empty → a default-named file ("vdb-<plugin>-<date>-<time>.csv") in the
@@ -36,7 +35,6 @@ end
 val save
   :  input:string
   -> plugin_name:string
-  -> x_axis:string
-  -> y_axis:string
-  -> points:(float * float) list (** Oldest first. *)
+  -> columns:string list
+  -> rows:string list list (** Oldest first. *)
   -> (string, string) Result.t Effect.t

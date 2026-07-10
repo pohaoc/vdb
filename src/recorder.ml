@@ -7,15 +7,13 @@ module State = struct
     | Recording of
         { pane : Pane_tree.Id.t
         ; plugin_name : string
-        ; x_axis : string
-        ; y_axis : string
-        ; points : (float * float) list
+        ; columns : string list
+        ; rows : string list list
         }
     | Prompting of
         { plugin_name : string
-        ; x_axis : string
-        ; y_axis : string
-        ; points : (float * float) list
+        ; columns : string list
+        ; rows : string list list
         ; filename : string
         }
   [@@deriving sexp_of, equal]
@@ -45,15 +43,16 @@ let resolve_path ~input ~plugin_name =
   else input
 ;;
 
-(* Integer-valued floats (e.g. byte counts) print without a spurious ".", everything
-   else round-trips. *)
-let format_float value =
-  if Float.is_integer value && Float.(abs value < 1e15)
-  then sprintf "%.0f" value
-  else Float.to_string value
+(* Cells are plugin-provided strings; quote only the ones that would break the CSV. *)
+let escape_cell cell =
+  if String.exists cell ~f:(function ',' | '"' | '\n' | '\r' -> true | _ -> false)
+  then "\"" ^ String.substr_replace_all cell ~pattern:"\"" ~with_:"\"\"" ^ "\""
+  else cell
 ;;
 
-let save ~input ~plugin_name ~x_axis ~y_axis ~points =
+let format_row row = List.map row ~f:escape_cell |> String.concat ~sep:","
+
+let save ~input ~plugin_name ~columns ~rows =
   (* [Async] shadows [input] (the blocking Stdlib reader), so rebind it first. *)
   let user_input = input in
   Effect.of_deferred_thunk (fun () ->
@@ -62,10 +61,7 @@ let save ~input ~plugin_name ~x_axis ~y_axis ~points =
       Monitor.try_with_or_error (fun () ->
         let path = resolve_path ~input:user_input ~plugin_name in
         let contents =
-          (sprintf "%s,%s" x_axis y_axis
-           :: List.map points ~f:(fun (x, y) ->
-             sprintf "%s,%s" (format_float x) (format_float y)))
-          |> String.concat ~sep:"\n"
+          format_row columns :: List.map rows ~f:format_row |> String.concat ~sep:"\n"
         in
         let%map () = Writer.save path ~contents:(contents ^ "\n") in
         path)

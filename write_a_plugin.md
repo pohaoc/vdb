@@ -29,13 +29,20 @@ let uptime =
       { Vdb.Plugin.Output.view
       ; handler = (fun (_ : Event.t) -> Effect.Ignore)
       ; record =
-          (* Omit (or use [Output.of_view]) if the pane has nothing to record. *)
+          (* Omit (or use [Output.of_view]) if the pane has nothing to record. The CSV
+             format is yours: pick the columns, and emit any number of rows per sample
+             (e.g. one per thread) — they are appended whenever [rows] changes. *)
           Some
-            { x_axis = "time_epoch_s"
-            ; y_axis = "uptime_s"
-            ; latest =
-                Option.map latest ~f:(fun { at; value } ->
-                  Time_ns.to_span_since_epoch at |> Time_ns.Span.to_sec, value)
+            { columns = [ "time_epoch_s"; "uptime_s" ]
+            ; rows =
+                (match latest with
+                 | None -> []
+                 | Some { at; value } ->
+                   let cell = Vdb.Plugin.Record_source.cell in
+                   [ [ cell (Time_ns.to_span_since_epoch at |> Time_ns.Span.to_sec)
+                     ; cell value
+                     ]
+                   ])
             }
       })
 ;;

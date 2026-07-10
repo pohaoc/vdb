@@ -37,16 +37,26 @@ end
 
 module Record_source : sig
   (** What a pane exposes for recording. When the user hits [r] on a pane whose plugin
-      provides a record source, the app appends [latest] to a buffer every time it
-      changes (so [latest] should include something that distinguishes datapoints,
-      typically a timestamp x), until the user hits Escape and exports the buffer as a
-      CSV whose header row is [x_axis,y_axis]. *)
+      provides a record source, the app appends [rows] to a buffer every time it
+      changes (so rows should include something that distinguishes datapoints, typically
+      a timestamp column), until the user hits Escape and exports the buffer as a CSV
+      whose header row is [columns]. The format is the plugin's to choose. *)
   type t =
-    { x_axis : string (** CSV column name for x, e.g. "time_epoch_s". *)
-    ; y_axis : string (** CSV column name for y, e.g. "memory_current_bytes". *)
-    ; latest : (float * float) option (** The newest datapoint, as [(x, y)]. *)
+    { columns : string list
+    (** CSV header, e.g. ["time_epoch_s"; "memory_current_bytes"]. Must not change
+        while recording. *)
+    ; rows : string list list
+    (** The rows contributed by the newest datapoint, each as long as [columns]. A
+        scalar source yields one row per sample; a source measuring several entities at
+        once (e.g. one row per thread) yields several. [[]] means nothing to record
+        yet. Cells are written to the CSV as-is (quoted only when they contain a comma,
+        quote, or newline). *)
     }
   [@@deriving sexp_of, equal]
+
+  (** Formats a float for a CSV cell: integer-valued floats (e.g. byte counts) print
+      without a spurious ".", everything else round-trips. *)
+  val cell : float -> string
 end
 
 module Output : sig

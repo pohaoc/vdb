@@ -245,7 +245,7 @@ module Browser = struct
   ;;
 end
 
-let chart ~y_axis ~(samples : Sampler.Sample.t list) ~width ~height =
+let chart ~y_axis ~(samples : float Sampler.Sample.t list) ~width ~height =
   match List.last samples with
   | None -> View.text ~attrs:[ Attr.fg (color Overlay1) ] "sampling…"
   | Some latest ->
@@ -290,7 +290,7 @@ let chart ~y_axis ~(samples : Sampler.Sample.t list) ~width ~height =
       ~data_height
 ;;
 
-let chart_view ~y_axis ~path ~(output : Sampler.Output.t) ~(dimensions : Dimensions.t) =
+let chart_view ~y_axis ~path ~(output : float Sampler.Output.t) ~(dimensions : Dimensions.t) =
   let { Dimensions.width; height } = dimensions in
   let header =
     let current =
@@ -348,19 +348,25 @@ let component ~default_path ~interval ~history ~dimensions ~settings ~recording 
     let%arr model in
     model.Browser.Model.watched
   in
-  let output = Sampler.poll_file ~interval ~history ~path ~parse graph in
+  let output =
+    Sampler.poll_file ~interval:(Bonsai.return interval) ~history ~path ~parse graph
+  in
   let window = Time_ns.Span.scale_int interval history in
   let%arr model and output and dimensions and settings and inject and recording in
   (* Recording exports absolute time (unix epoch seconds) rather than the chart's
      relative seconds-ago, and raw bytes rather than MiB. *)
   let record =
+    let cell = Vdb.Plugin.Record_source.cell in
     Some
-      { Vdb.Plugin.Record_source.x_axis = "time_epoch_s"
-      ; y_axis = "memory_current_bytes"
-      ; latest =
-          List.last output.samples
-          |> Option.map ~f:(fun (s : Sampler.Sample.t) ->
-            Time_ns.to_span_since_epoch s.at |> Time_ns.Span.to_sec, s.value)
+      { Vdb.Plugin.Record_source.columns = [ "time_epoch_s"; "memory_current_bytes" ]
+      ; rows =
+          (match List.last output.samples with
+           | None -> []
+           | Some (s : float Sampler.Sample.t) ->
+             [ [ cell (Time_ns.to_span_since_epoch s.at |> Time_ns.Span.to_sec)
+               ; cell s.value
+               ]
+             ])
       }
   in
   if model.browsing
