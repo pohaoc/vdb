@@ -4,8 +4,7 @@ vdb is a terminal-based tool built on [bonsai_term](https://github.com/janestree
 
 ## Download
 ```
-sudo curl -Lo /usr/local/bin/vdb https://github.com/USER/REPO/releases/latest/download/vdb
-sudo chmod +x /usr/local/bin/vdb
+sudo curl -LsSf https://raw.githubusercontent.com/pohaoc/vdb/main/bin/vdb -o /usr/local/bin/vdb && sudo chmod +x /usr/local/bin/vdb
 ```
 
 
